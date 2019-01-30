@@ -2,8 +2,9 @@ const express = require('express')
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 
+var _eval = require('eval');
 const app = express()
-const port = 3000
+const port = 3000;
 const bodyParser = require('body-parser');
 
 const fs = require('fs');
@@ -14,7 +15,7 @@ app.use(cookieParser());
 
 const router = express.Router();
 
-const url = process.env.MONGOLAB_URI;
+const url = "mongodb://guyNode:zyguibplsq19t@ds259144.mlab.com:59144/guynode";
 
 const schema = new mongoose.Schema ({
 username: String,
@@ -67,6 +68,7 @@ function(err, user) {
 console.log(req.body);
 if (user) {
 res.cookie("usercookie", req.body.username);
+res.cookie("passwordcookie", req.body.password);
 res.send(`<h2> user</h2> <h1 id="signinname">${req.body.username}</h1><h2> has signed in!</h2> <a href="/">log out</a><br><form method="post" action="/downloadlogs" id="download-log"><input type="submit" value="Download Log Function"></form><br><form method="post" action="/viewlogs" id="view-logs"><input type="submit" value="View Logs"></form>`) 
 } else {
 res.send("<h2>username or password does not match!</h2><a href='/'>try again</a> ")
@@ -87,53 +89,31 @@ res.send("error!")
 })
 
 app.post("/downloadlogs", (req, res) => {
-const logfunc = `
-
-const mongoose = require('mongoose');
-const url = 'mongodb://guyNode:zyguibplsq19t@ds259144.mlab.com:59144/guynode';
-const schema = new mongoose.Schema ({
-username: String,
-password: String,
-logs: [{title: String, text: String, date: Date}]
-});
-const user = mongoose.model("user", schema);
-const usernamelog = require('./index.js');
-mongoose.Promise = global.Promise;
-mongoose.connect(url, {useNewUrlParser: true}).then(()=> {
-console.log("connected!")
-});
-mongoose.set('useFindAndModify', false);
-function log(title, text) {
-var logdata = {"title": "title", "text": "text", date: new Date()};
-user.findOneAndUpdate({username: "${req.cookies['usercookie']}"}, {$push: {logs: logdata}}, 
-function (err, succ) {
-if (err) console.log("err");
-else console.log("succ");
-})
-console.log("log saved!");
-};
-
+var logfunc = `
+var username= "${req.cookies['usercookie']}";
+var password= "${req.cookies['passwordcookie']}";
+exports.username = username;
+exports.password = password;
 `;
 fs.writeFileSync('logFunc.txt', logfunc, (err) => {
 if (err) console.log("err2");
 console.log('func saved!');
-console.log(logfunc);
 });
-res.download('/home/node/Desktop/NodeTargil1/logFunc.txt');
+res.download('logFunc.txt');
 });
 
-
-/*
-app.post("/downloadlogs", (req, res) => {
-let logfunc = fs.readFileSync("/home/node/Desktop/NodeTargil1/func.js", "utf8", function(err, data) {
-if(err) console.log("err");
-else {
-fs.writeFile('logFunc.txt', logfunc, (err) => {
-if (err) console.log("err2");
-console.log('func saved!');
-});
+app.post("/addlog", (req, res) => {
+var log = {"title": req.body.textlogtitle, "text": req.body.textlogtext, "date":new Date()};
+var functext = _eval(req.body.textfunction);
+user.findOne({"username": functext.username,"password": functext.password},
+function(err, userr) {
+if (userr) {
+mongoose.set('useFindAndModify', false);
+user.findOneAndUpdate({username: functext.username}, {$push: {logs: log}},
+{safe: true, upsert: true});
+res.send(`<h2>user</h2> <h1>${functext.username}</h1><h2> log sent!</h2>`);
+} else {
+res.send("<h2>username or password does not match!</h2>")
 }
-});
-res.download('/home/node/Desktop/NodeTargil1/logFunc.txt');
-});
-*/
+})
+})
